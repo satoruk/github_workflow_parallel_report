@@ -1,0 +1,45 @@
+name: parallel report
+on: workflow_dispatch
+jobs:
+  parallel_tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        CI_NODE_INDEX: ['0', '1', '2']
+        CI_NODE_TOTAL: ['3']
+    env:
+      CI_NODE_INDEX: ${{ matrix.CI_NODE_INDEX }}
+      CI_NODE_TOTAL: ${{ matrix.CI_NODE_TOTAL }}
+    steps:
+      - name: Create resultset
+        run: |
+          echo "CI_NODE_INDEX: '${CI_NODE_INDEX}' / '${CI_NODE_TOTAL}'"
+          mkdir coverage
+          echo "{\"CI_NODE_INDEX\":\"${CI_NODE_INDEX}\",\"CI_NODE_TOTAL\":\"${CI_NODE_TOTAL}\"}" > coverage/.resultset.json
+      - name: Create artifacts
+        run: |
+          mkdir "simplecov-resultset-n${CI_NODE_INDEX}"
+          mv coverage/.resultset.json "simplecov-resultset-n${CI_NODE_INDEX}/.resultset.json"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: simplecov-resultset-n${{ env.CI_NODE_INDEX }}
+          path: simplecov-resultset-n${{ env.CI_NODE_INDEX }}
+  coverage_report:
+    runs-on: ubuntu-latest
+    needs: parallel_tests
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+      - name: Merge resultset
+        run: |
+          ls -alR
+          mkdir -p coverage
+          cat simplecov-resultset-n*/.resultset.json > coverage/.resultset.json
+          cat coverage/.resultset.json
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: simplecov-report
+          path: coverage
